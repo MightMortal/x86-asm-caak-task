@@ -4,7 +4,7 @@
 // Non-present page pde/pte address: 0xF03C01FC for 4KB page, 0xF00001FC for 4MB page
 // Non-present address: 0x1FC00004
 uint32 PF_ADDRESS = 0x1FC00004; // uint32 my_ptr = 0xF00001FC;
-uint32 my_ptr = 0xF03C01FC;
+uint32 my_ptr = 0xF00001FC;
 uint32 pf_counter = 0;
 uint32 pf_old_offset;
 uint16 pf_old_segment;
@@ -60,11 +60,11 @@ void __declspec( naked ) ud_handler(void) {
         push ebx
         // push es
 
-        mov ebx, [esp+12]
+        mov ebx, [esp+12] // Get error point segment selector
         cmp bx, ud_cause_segment
         jnz old_ud
 
-        mov ebx, [esp+8]
+        mov ebx, [esp+8] // Get error point segment offset
         cmp ebx, ud_cause_offset
         jnz old_ud
         mov [ebx], 0x90
@@ -118,6 +118,8 @@ void get_sysinfo(PSYSINFO sysinfo) {
     PDTR _idt = &sysinfo->idt;
     uint16* _ldtr = &sysinfo->ldtr;
     uint16* _tr = &sysinfo->tr;
+    printf("LDTR = 0x%08X\n", _ldtr);
+    printf("TR = 0x%08X\n", _tr);
     __asm {
         // Read CPL from code selector CS (Intel Manual 3A. Section 3.4.2)
         mov ax, cs
@@ -142,6 +144,8 @@ void get_sysinfo(PSYSINFO sysinfo) {
         mov eax, _tr
         str [eax]
     }
+    printf("LDTR = 0x%08X\n", _ldtr);
+    printf("TR = 0x%08X\n", _tr);
     sysinfo->cpl = _cpl;
     sysinfo->cr0 = _cr0;
 }
@@ -417,7 +421,7 @@ void page_fault_test(PSYSINFO sysinfo) {
 
     idt_set_gate(idt_table, PF_EXCEPTION, new_offset, new_segment, idt_table[PF_EXCEPTION].flags);
 
-    address = (uint32*) PF_ADDRESS;
+    address = (uint32*) (PF_ADDRESS);
     printf("Test new handler\n");
     printf("Check memory [0x%08X]: %d\n", address, *address); // Cause page fault with following recovery
 

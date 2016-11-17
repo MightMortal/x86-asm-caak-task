@@ -257,7 +257,7 @@ typedef struct _TSS {
 #define APIC_TIMER_INITIAL_TIME 0x00000001
 
 
-#define PTE_TRIVIAL_SELFMAP    0x007 // 0000 0000 0111 - presented read-write user 4KB page
+#define PTE_TRIVIAL_SELFMAP    0x087 // 0000 1000 0111 - presented read-write user 4MB page
 #define PTE_TRIVIAL_LARGE      0x087 // 0000 1000 0111 - presented read-write user 4MB page
 #define PTE_TRIVIAL_NONPRESENT 0xBA4 // ---- ---- ---1
 #define PTE_TRIVIAL_FAULTONCE  0x086 // Same as PTE_TRIVIAL_LARGE but not presented
