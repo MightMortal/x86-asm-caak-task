@@ -3,8 +3,8 @@
 // Non-present page: 0x1FC00000-0x1FFFFFFF is unpresent
 // Non-present page pde/pte address: 0xF03C01FC for 4KB page, 0xF00001FC for 4MB page
 // Non-present address: 0x1FC00004
-uint32 PF_ADDRESS = 0x1FC00004; // uint32 my_ptr = 0xF00001FC;
-uint32 my_ptr = 0xF00001FC;
+uint32 PF_ADDRESS = 0x1FC00004;
+uint32 my_ptr = 0xF00001FC; // uint32 my_ptr = 0xF03C01FC;
 uint32 pf_counter = 0;
 uint32 pf_old_offset;
 uint16 pf_old_segment;
@@ -20,8 +20,6 @@ uint16 ud_cause_segment;
 uint32 apic_base;
 uint32 timer_counter = 0;
 uint32 eoi_address = 0;
-uint32 old_icr0 = 0;
-uint32 old_icr1 = 0;
 
 void __declspec( naked ) pf_handler(void) {
     __asm {
@@ -29,19 +27,19 @@ void __declspec( naked ) pf_handler(void) {
         push eax
         push edx
         mov edx, cr2
-        cmp edx, PF_ADDRESS        //"my" address
+        cmp edx, PF_ADDRESS        // Compare with target page fault address
         jnz old_pf
-        mov eax, my_ptr            //pde/pte corresponding to "my" unpresent address
-        or dword ptr[eax], 1h      //restore P bit
-        invlpg [eax]               //invalidate all paging caches for "my" address
+        mov eax, my_ptr            // Pde/pte corresponding to "my" unpresent address
+        or dword ptr[eax], 1h      // Restore P bit of target page
+        invlpg [eax]               // Invalidate all paging caches for "my" address
         lea eax, pf_counter
-        add [eax], 1               //inc counter of "my" #PF
+        add [eax], 1               // Increment counter of "my" #PF
 
         jmp pf_done
 old_pf:
         pop edx
         pop eax
-        sub esp, 2 // Align segment selector
+        sub esp, 2 // Align stack offset register
         push pf_old_segment
         push pf_old_offset
         retf 
@@ -49,7 +47,7 @@ pf_done:
         pop edx
         pop eax
         //sti
-        add esp, 4
+        add esp, 4 // Skip error code on the stack
         iretd
     }
 }
@@ -105,7 +103,7 @@ void __declspec( naked ) timer_handler(void) {
 
 void ud_cause(void) {
     __asm {
-        rsm
+        rsm // Return from System Management Mode, cause #UD if SMM not configured right
         nop
         nop
     }
@@ -118,8 +116,6 @@ void get_sysinfo(PSYSINFO sysinfo) {
     PDTR _idt = &sysinfo->idt;
     uint16* _ldtr = &sysinfo->ldtr;
     uint16* _tr = &sysinfo->tr;
-    printf("LDTR = 0x%08X\n", _ldtr);
-    printf("TR = 0x%08X\n", _tr);
     __asm {
         // Read CPL from code selector CS (Intel Manual 3A. Section 3.4.2)
         mov ax, cs
@@ -140,12 +136,10 @@ void get_sysinfo(PSYSINFO sysinfo) {
         mov eax, _ldtr
         sldt [eax]
 
-        // Read TR (Intel Manual 3A. Section ----)
+        // Read TR (Intel Manual 3A. Section 7.2.2)
         mov eax, _tr
         str [eax]
     }
-    printf("LDTR = 0x%08X\n", _ldtr);
-    printf("TR = 0x%08X\n", _tr);
     sysinfo->cpl = _cpl;
     sysinfo->cr0 = _cr0;
 }
@@ -469,7 +463,7 @@ void register_timer_handler(PSYSINFO sysinfo) {
         mov ax, seg timer_handler
         mov new_segment, ax
     }
-    flags = 0x8E;
+    flags = 0x8E; // Presented interrupt gate, gate size is 32-bit
     idt_set_gate(idt_table, TIMER_INTERRUPT, new_offset, new_segment, flags);
 }
 
@@ -496,7 +490,7 @@ void enable_apic_timer() {
     apic_base = apic_base_reg.base_address << 16;
     printf("APIC BASE: 0x%08X\n", apic_base);
 
-    // Reset Timer configuration
+    // Reset APIC-Timer configuration
     __asm {
         mov eax, apic_base
         add eax, APIC_TIMER_INITIAL_COUNTER_OFFSET
@@ -534,7 +528,7 @@ void enable_apic_timer() {
         mov [eax], APIC_TIMER_INITIAL_TIME
     }
 
-    // The following code also make sufficient latency for the timer
+    // In addition, following code also make sufficient latency for the timer
     __asm {
         mov eax, apic_base
         add eax, APIC_TIMER_CURRENT_COUNTER_OFFSET
