@@ -27,19 +27,19 @@ void __declspec( naked ) pf_handler(void) {
         push eax
         push edx
         mov edx, cr2
-        cmp edx, PF_ADDRESS        // Compare with target page fault address
+        cmp edx, PF_ADDRESS         // Compare with target page fault address
         jnz old_pf
-        mov eax, my_ptr            // Pde/pte corresponding to "my" unpresent address
-        or dword ptr[eax], 1h      // Restore P bit of target page
-        invlpg [eax]               // Invalidate all paging caches for "my" address
+        mov eax, my_ptr             // Pde/pte corresponding to "my" unpresent address
+        or dword ptr[eax], 1h       // Restore P bit of target page
+        invlpg [eax]                // Invalidate all paging caches for "my" address
         lea eax, pf_counter
-        add [eax], 1               // Increment counter of "my" #PF
+        add [eax], 1                // Increment counter for #PF
 
         jmp pf_done
 old_pf:
         pop edx
         pop eax
-        sub esp, 2 // Align stack offset register
+        sub esp, 2                  // Align stack offset register
         push pf_old_segment
         push pf_old_offset
         retf 
@@ -47,7 +47,7 @@ pf_done:
         pop edx
         pop eax
         //sti
-        add esp, 4 // Skip error code on the stack
+        add esp, 4                  // Skip error code on the stack
         iretd
     }
 }
@@ -56,30 +56,28 @@ void __declspec( naked ) ud_handler(void) {
     __asm {
         push eax
         push ebx
-        // push es
 
-        mov ebx, [esp+12] // Get error point segment selector
+        mov ebx, [esp+12]           // Get error point segment selector
         cmp bx, ud_cause_segment
         jnz old_ud
 
-        mov ebx, [esp+8] // Get error point segment offset
+        mov ebx, [esp+8]            // Get error point segment offset
         cmp ebx, ud_cause_offset
         jnz old_ud
         mov [ebx], 0x90
         mov [ebx+1], 0x90
         lea eax, ud_counter
-        add [eax], 1               //inc counter of #UD
+        add [eax], 1                // Increment counter for #UD
 
         jmp ud_done
 old_ud:
         pop ebx
         pop eax
-        sub esp, 2 // Align segment selector
+        sub esp, 2                  // Align stack offset register
         push ud_old_segment
         push ud_old_offset
         retf
 ud_done:
-        // pop es
         pop ebx
         pop eax
         iretd
@@ -103,7 +101,7 @@ void __declspec( naked ) timer_handler(void) {
 
 void ud_cause(void) {
     __asm {
-        rsm // Return from System Management Mode, cause #UD if SMM not configured right
+        rsm // Return from System Management Mode, cause #UD if SMM is not configured
         nop
         nop
     }
@@ -375,7 +373,7 @@ void enable_paging() {
         cli
 
         mov eax, _p_aligned
-        mov cr3, eax // Cause a cache reset
+        mov cr3, eax // In addition, cause a cache reset
         
         // Enable CR4.PSE and CR4.PGE bits
         mov eax, cr4
